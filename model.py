@@ -7,19 +7,13 @@ from torch.utils.data import Dataset, DataLoader
 class Model(nn.Module):
     # def __init__(self, network_shape: list[int]) -> None:
     def __init__(self) -> None:
-        """
-        Initialize the neural network model.
-        
-        Args:
-            network_shape (list[int]): List of integers representing the number of neurons
-                                     in each layer. Example: [784, 128, 64, 10]
-        """
         super().__init__()  # Initialize parent class nn.Module
         
         # if not isinstance(network_shape, (list, tuple)) or len(network_shape) < 2:
             # raise ValueError("network_shape must be a list/tuple with at least 2 elements")
             
         # self.network_shape = network_shape
+
         self.network_shape = [2, 20, 30, 40, 1]
         self.layers = nn.ModuleList()
         
