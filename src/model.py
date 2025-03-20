@@ -4,6 +4,19 @@ import torch.optim as optim
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
 
+# Class to handle dataset
+class DataSetHandler(Dataset):
+    def __init__(self, X, y):
+        self.X = X      # Features (e.g., tensor of shape [n_samples, n_features])
+        self.y = y  # Labels (e.g., tensor of shape [n_samples])
+
+    def __len__(self):
+        return len(self.X)  # Number of samples
+
+    def __getitem__(self, idx):
+        return self.X[idx], self.y[idx] # Return tuple (data, label)
+
+
 # Class to handle hardware architecture
 class DeviceType:
     CPU = "cpu"
@@ -11,10 +24,10 @@ class DeviceType:
     MPS = "mps"
 
     @staticmethod
-    def get_best_device():
-        if torch.cuda.is_available():
+    def get_best_device(useGPU):
+        if torch.cuda.is_available() and useGPU:
             return DeviceType.CUDA
-        elif torch.backends.mps.is_available():
+        elif torch.backends.mps.is_available() and useGPU:
             return DeviceType.MPS
         else:
             return DeviceType.CPU
@@ -23,9 +36,9 @@ class DeviceType:
 class Model():
     """
     Description:
-    Highly cusomisable pytorch neural network
+    Highly cusomisable pytorch neural network!
     """
-    def __init__(self, network_meta: list[dict]) -> None:
+    def __init__(self, network_meta: list[dict], useGPU=False) -> None:
         """
         Description:
         Initalise the model and corresponding layers based on the passed in network meta
@@ -51,6 +64,7 @@ class Model():
         """
         # List to store layer information
         self.layers = []
+        self.useGPU = useGPU
 
         self.network_meta = network_meta
         self.layer_count = len(self.network_meta)
@@ -74,7 +88,7 @@ class Model():
         self.model = nn.Sequential(*self.layers)
         
         # Find the best device and move the model there
-        self.device = DeviceType.get_best_device()
+        self.device = DeviceType.get_best_device(useGPU)
         print(f"Using device: {self.device}")
         if self.device != DeviceType.CPU:
             self.model = self.model.to(self.device)
@@ -111,7 +125,7 @@ class Model():
             return x, y
     
     
-    def train(self,  x_train, y_train, n_epochs=500, learning_rate=1e-3, loss_fn=nn.MSELoss()) -> None:
+    def train(self,  x_train, y_train, n_epochs=10, learning_rate=0.01, loss_fn=nn.MSELoss(), optimizer=optim.Adam) -> None:
         """
         Description:
         Train the model on the training data
@@ -120,35 +134,64 @@ class Model():
         # Clean up data and ensure that it is a torch tensor
         x_train_tensor, y_train_tensor = self.data_to_tensor(x_train, y_train)
         
-        # Move data to the CPU if there is one
+        # Move data to the CPU if there is one and enabled
         x_train_tensor, y_train_tensor = self.data_to_device(x_train_tensor, y_train_tensor)
                 
-        # Adam optimisatoin
-        self.optimizer = optim.Adam(self.model.parameters(), lr=learning_rate)
-        
-        # Initialises the model to start training
-        self.model.train()
+        data_handler = DataSetHandler(
+            x_train_tensor,
+            y_train_tensor
+        )
+                
+        # Sefine optimizer
+        self.optimizer = optimizer(self.model.parameters(), lr=learning_rate)
         
         # Training loop
         for epoch in range(n_epochs):
             # Zero the gradients
-            self.optimizer.zero_grad()  
             
-            # Forward pass
-            predictions = self.model(x_train_tensor)
+            # Initialises the model to start training
+            self.model.train()
+
+            # Create a dataloader from the initial data handler
+            loader = DataLoader(
+                data_handler,
+                batch_size=2**10,
+                shuffle=True,          # Randomize order each epoch
+                num_workers=1,         # Parallel loading
+                # pin_memory=True        # Faster CPU-to-GPU transfer
+            )
+
+            for batch_X, batch_y in loader:
+                
+                # Move each batch to GPU if enabled
+                batch_X, batch_y = self.data_to_device(batch_X, batch_y)
+                self.optimizer.zero_grad()  
+                
+                # Forward pass
+                predictions = self.model(batch_X)
+                
+                # Compute loss
+                loss = loss_fn(predictions, batch_y)
+                
+                # Backward pass, gradient descent
+                loss.backward()
+                
+                # Update weights
+                self.optimizer.step()
             
-            # Compute loss
-            loss = loss_fn(predictions, y_train_tensor)
+                # Move each batch to GPU
+                # batch_data = batch_data.to(device)
+                # batch_targets = batch_targets.to(device)
+                
+                # optimizer.zero_grad()
+                # output = model(batch_data)
+                # loss = criterion(output, batch_targets)
+                # loss.backward()
+                # optimizer.step()
             
-            # Backward pass, gradient descent
-            loss.backward()
-            
-            # Update weights
-            self.optimizer.step()
-            
-            # Print the loss every 50 epochs for monitoring
-            # if (epoch + 1) % 10 == 0:
-            print(f"Epoch {epoch + 1}/{n_epochs}, Loss: {loss.item():.6f}")
+            # Print the loss every 10 epochs for monitoring
+            if (epoch + 1) % 1 == 0 or epoch == 0:
+                print(f"Epoch {epoch + 1}/{n_epochs}, Loss: {loss.item():.6f}")
     
     def test(self, x_test, y_test) -> None:
         """
@@ -210,8 +253,8 @@ if __name__ == "__main__":
     
     m = Model(network_meta)
     
-    x_train = torch.FloatTensor([[1,2], [3,4]])
-    y_train = torch.FloatTensor([6, 4])
+    x_train = torch.FloatTensor([[1.3, 2.6], [3.1, 4.7], [5.8, 6.9]])
+    y_train = torch.FloatTensor([6, 4, 2])
     
     train = True
     test = True
