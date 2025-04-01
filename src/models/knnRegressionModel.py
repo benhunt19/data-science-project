@@ -30,6 +30,9 @@ class KNNRegressionModel(Model):
     def test(self, x_test : pd.DataFrame, y_test : pd.DataFrame):
         return self.model.predict(x_test)
     
+    @staticmethod
+    def __model_name__():
+        return 'KNNRegressionModel'
 
 if __name__ == "__main__":
     

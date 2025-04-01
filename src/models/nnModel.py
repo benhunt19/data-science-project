@@ -202,6 +202,10 @@ class NNModel(Model):
         for i, layer in enumerate(self.layers):
             model_summary.append(f"Layer {i}: {layer}")
         return "\n".join(model_summary)
+
+    @staticmethod
+    def __model_name__():
+        return 'NNModel'
  
     
 # Class to handle dataset
