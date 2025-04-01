@@ -19,75 +19,79 @@ class KMeansRegressionModel:
     Description:
         Base parent class for use with ML models
     """
-    def __init__(self, n_clusters : int = 10, type : str = REGRESSION):
-        self.model = None
-        self.n_clusters = n_clusters
+    def __init__(self, clusters: int = 3, model_type: str = REGRESSION):
+        self.models = {}
+        self.clusters = clusters
+        self.x_train = None
+        self.y_train = None
+        self.x_cols = None
         self.cluster_centers = None
-        self.type = type
-        self.x_cols = []
+        self.linearRegModels = {}
+        self.type = model_type
+        self.model = None
 
-    def train(self, x_train, y_train):
-        
+    def train(self, x_train: pd.DataFrame, y_train: pd.DataFrame):
+        # Copy training data
         self.x_train = x_train.copy()
         self.x_cols = x_train.columns
-        del x_train
-        
         self.y_train = y_train.copy()
-        del y_train
-        
-        n_clusters = 20
-        self.model = KMeans(n_clusters=n_clusters, random_state=42)
-        
+
+        # Perform KMeans clustering
+        self.model = KMeans(n_clusters=self.clusters)
         clusters = self.model.fit_predict(self.x_train)
         self.x_train[CLUSTERS] = clusters
-        
+
+        # Store cluster centers
         self.cluster_centers = pd.DataFrame(self.model.cluster_centers_)
-        
-        # Perform a linear regression on all the of clusters
-        self.linearRegModels = {}
-        
+
+        # Train linear regression models for each cluster
         if self.type == REGRESSION:
             for row in self.cluster_centers.itertuples():
-                id = row[0] # Index
-                x_train_cluster = self.x_train[self.x_train[CLUSTERS] == id][self.x_cols]
-                y_train_cluster = self.y_train[self.x_train[CLUSTERS] == id]
-                self.linearRegModels[id] = LinearRegression().fit(x_train_cluster, y_train_cluster)
-    
-    def test(self, x_test : pd.DataFrame, y_test : pd.DataFrame) -> None:
-        
-        # PREDICTED_CLUSTERS = 'predicted_clusters'
+                cluster_id = row[0]  # Index
+                x_train_cluster = self.x_train[self.x_train[CLUSTERS] == cluster_id][self.x_cols]
+                y_train_cluster = self.y_train[self.x_train[CLUSTERS] == cluster_id]
+                self.linearRegModels[cluster_id] = LinearRegression().fit(x_train_cluster, y_train_cluster)
+
+    def test(self, x_test: pd.DataFrame, y_test: pd.DataFrame) -> np.ndarray:
+        # Copy test data
         x_test_trans = x_test.copy().reset_index(drop=True)
-        del x_test
-        predictedClusters = pd.Series(self.model.predict(x_test_trans))
-        
-        x_test_trans[PREDICTION] = 0.0  # Initialize prediction column
-        
-        # Type 1, regression
+        predicted_clusters = pd.Series(self.model.predict(x_test_trans))
+
+        # Initialize prediction column
+        x_test_trans[PREDICTION] = 0.0
+
+        # Perform predictions based on the model type
         if self.type == REGRESSION:
-            
             for cluster in self.cluster_centers.itertuples():
-                id = cluster[0]
-                mask = predictedClusters == id
-                predictions = self.linearRegModels[id].predict(x_test_trans.loc[mask, self.x_cols])
-                x_test_trans.loc[mask, PREDICTION] = np.maximum(predictions, 0.001)
+                cluster_id = cluster[0]
+                mask = predicted_clusters == cluster_id
+                cluster_x_test = x_test_trans.loc[mask, self.x_cols]
                 
-        # Type 2, average    
+                # Check that exists some testing data in the training cluster
+                if len(cluster_x_test) > 0:
+                    predictions = self.linearRegModels[cluster_id].predict(cluster_x_test)
+                    x_test_trans.loc[mask, PREDICTION] = np.maximum(predictions, 0.001)
+                else:
+                    pass
+
         elif self.type == AVERAGE:
             for cluster in self.cluster_centers.itertuples():
-                id = cluster[0]
+                cluster_id = cluster[0]
                 # Get the mean of training data for this cluster
-                train_mask = self.x_train[CLUSTERS] == id
+                train_mask = self.x_train[CLUSTERS] == cluster_id
                 cluster_mean = self.y_train[train_mask].mean()
-                
+
                 # Apply the mean to test data points in this cluster
-                test_mask = predictedClusters == id
-                predictions = np.zeros(len(x_test_trans.loc[test_mask, PREDICTION])) + cluster_mean
-                x_test_trans.loc[test_mask, PREDICTION] = np.maximum(predictions, 0)
+                test_mask = predicted_clusters == cluster_id
+                cluster_x_test = x_test_trans.loc[test_mask, PREDICTION]
+                if len(cluster_x_test) > 0:
+                    predictions = np.zeros(len(cluster_x_test)) + cluster_mean
+                    x_test_trans.loc[test_mask, PREDICTION] = np.maximum(predictions, 0)
+
         else:
-            KeyError("Incorrect Type")
-            
+            raise KeyError("Incorrect Type")
+
         return x_test_trans[PREDICTION].to_numpy()
-            
 
     @staticmethod
     def __model_name__():
@@ -113,7 +117,7 @@ if __name__ == '__main__':
     test_df = df.iloc[int(sample_size*train_pcnt) :, :]
     
     clusters = 10
-    kmr = KMeansRegressionModel(n_clusters=clusters)
+    kmr = KMeansRegressionModel(clusters=clusters)
     kmr.train(
         x_train=train_df[['lat', 'lon',]],
         y_train=train_df['tvd']

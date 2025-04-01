@@ -13,7 +13,7 @@ class NNModel(Model):
     Description:
     Highly cusomisable pytorch neural network!
     """
-    def __init__(self, network_meta: list[dict], useGPU : bool = False) -> None:
+    def __init__(self, network_meta: list[dict], useGPU: bool = False, n_epochs:int = 10, learning_rate : float = 0.01) -> None:
         """
         Description:
         Initalise the model and corresponding layers based on the passed in network meta
@@ -43,6 +43,8 @@ class NNModel(Model):
         self.useGPU = useGPU
 
         self.network_meta = network_meta
+        self.n_epochs = n_epochs
+        self.learning_rate = learning_rate
         self.layer_count = len(self.network_meta)
                 
         # Create the layers based on the network meta shape
@@ -73,11 +75,9 @@ class NNModel(Model):
         """
         Description:
             Convert input data to PyTorch tensors.
-        
         Parameters:
             x: Input features (DataFrame, ndarray, or tensor)
             y: Target values (ndarray or tensor)
-        
         Returns:
             tuple: (x_tensor, y_tensor) as PyTorch float tensors
         """
@@ -100,7 +100,7 @@ class NNModel(Model):
     def data_to_device(self, x, y):
         """
         Description:
-        Add datasets to GPU if there is one
+            Add datasets to GPU if there is one
         """
         # Potemtially assert that the data is the correct type (torch tensor)
         if self.device != DeviceType.CPU:
@@ -108,10 +108,10 @@ class NNModel(Model):
         else:
             return x, y
     
-    def train(self,  x_train, y_train, n_epochs=10, learning_rate=0.01, loss_fn=nn.MSELoss(), optimizer=optim.Adam) -> None:
+    def train(self,  x_train, y_train, loss_fn=nn.MSELoss(), optimizer=optim.Adam) -> None:
         """
         Description:
-        Train the model on the training data
+            Train the model on the training data
         """
         
         # Clean up data and ensure that it is a torch tensor
@@ -126,10 +126,10 @@ class NNModel(Model):
         )
                 
         # Sefine optimizer
-        self.optimizer = optimizer(self.model.parameters(), lr=learning_rate)
+        self.optimizer = optimizer(self.model.parameters(), lr=self.learning_rate)
         
         # Training loop
-        for epoch in range(n_epochs):
+        for epoch in range(self.n_epochs):
             # Zero the gradients
             
             # Initialises the model to start training
@@ -162,19 +162,9 @@ class NNModel(Model):
                 # Update weights
                 self.optimizer.step()
             
-                # Move each batch to GPU
-                # batch_data = batch_data.to(device)
-                # batch_targets = batch_targets.to(device)
-                
-                # optimizer.zero_grad()
-                # output = model(batch_data)
-                # loss = criterion(output, batch_targets)
-                # loss.backward()
-                # optimizer.step()
-            
             # Print the loss every 10 epochs for monitoring
             if (epoch + 1) % 1 == 0 or epoch == 0:
-                print(f"Epoch {epoch + 1}/{n_epochs}, Loss: {loss.item():.6f}")
+                print(f"Epoch {epoch + 1}/{self.n_epochs}, Loss: {loss.item():.6f}")
     
     def test(self, x_test, y_test) -> None:
         """
@@ -195,7 +185,7 @@ class NNModel(Model):
     def __str__(self):
         """
         Description:
-        Magic method to print a summary of the model's architecture
+            Magic method to print a summary of the model's architecture
         """
         model_summary = []
         model_summary.append(f"Model architecture:")
@@ -266,7 +256,7 @@ if __name__ == "__main__":
         },
     ]
     
-    m = NNModel(network_meta)
+    m = NNModel(network_meta, n_epochs=10, learning_rate= 0.01)
     
     x_train = torch.FloatTensor([[1.3, 2.6], [3.1, 4.7], [5.8, 6.9]])
     y_train = torch.FloatTensor([6, 4, 2])

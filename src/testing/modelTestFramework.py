@@ -2,10 +2,11 @@ from src.models.knnRegressionModel import KNNRegressionModel
 from src.models.nnModel import NNModel
 from src.models.decisionTreeRegressionModel import DecisionTreeRegressionModel
 from src.models.countryAverageModel import CountryAverageModel
-from src.models.heirachicalRegressionModel import HeirachicalRegressionModel
+from src.models.hierarchicalRegressionModel import HierarchicalRegressionModel
 from src.models.kMeansRegressionModel import KMeansRegressionModel
+from src.testing.modelMetaMaker import ModelMetaMaker as MMM
 
-from src.globals import DATA_FOLDER, WELLS_MERGED
+from src.globals import DATA_FOLDER, WELLS_MERGED, RESULTS_FOLDER, RESULTS_METRICS_FOLDER
 
 import pandas as pd
 import numpy as np
@@ -25,12 +26,26 @@ Y_TEST = 'y_test'
 class ModelTestFramework:
     def __init__(self):
         self.results = pd.DataFrame([])                 # Dataframe to store prediction results from the model tests
-        self.evaluationData = None                      # Dataframe to store the performance metrics
+        self.evaluationMetrics = None                   # Datafame to store metrics
     
     def testModel(self, modelMeta : list[dict], x_train: pd.DataFrame, y_train: pd.DataFrame, x_test : pd.DataFrame, y_test : pd.DataFrame, plot : bool = False) -> None:
         """
         Description:
             Train model on training data then test the model on the test set
+        Parameters:
+            modelMeta (list[dict]): The metadata to create a model to test. eg.
+                [{
+                    'model': HierarchicalRegressionModel,
+                    'kwargs': {
+                        'clusters': 10
+                    }
+                }]
+            x_train (pd.DataFrame): Training data dataframe
+            y_train (pd.DataFrame): Training labels dataframe (or series)
+            x_test (pd.DataFrame): Testing data dataframe
+            y_test (pd.DataFrame): Testing labels dataframe (or series)
+            plot (bool): Run each model's plotting function when testing
+            
         """
         # Create a new instance of the model
         m = modelMeta['model'](**modelMeta['kwargs'])
@@ -68,7 +83,8 @@ class ModelTestFramework:
                 x_train=x_train,
                 y_train=y_train,
                 x_test=x_test,
-                y_test=y_test
+                y_test=y_test,
+                plot=plot
             )
         print(self.results)
         
@@ -91,95 +107,29 @@ class ModelTestFramework:
             'KLD': lambda y_true, y_pred : entropy(y_true, y_pred, base=2)
         }
         
-        metricDF = pd.DataFrame()
+        self.evaluationMetrics = pd.DataFrame()
         
         for column in self.results.columns[1:]:
             metricDict = {}
             for metric_name, metric_func in metrics.items():
                 metricDict[metric_name] = metric_func(self.results[Y_TEST], self.results[column])
             
-            metricDF[column] = pd.Series(metricDict)
+            self.evaluationMetrics[column] = pd.Series(metricDict)
         
-        print(metricDF)
+        print(self.evaluationMetrics)
         return self
 
 if __name__ == "__main__":
     
-    modelMetas = [
-        {
-            'model': KNNRegressionModel,
-            'kwargs': {
-                'k': 5
-            }
-        },
-        {
-            'model': KNNRegressionModel,
-            'kwargs': {
-                'k': 5,
-                'weights': 'distance'
-            }
-        },
-        {
-            'model': KNNRegressionModel,
-            'kwargs': {
-                'k': 10
-            }
-        },
-        {
-            'model': KNNRegressionModel,
-            'kwargs': {
-                'k': 10,
-                'weights': 'distance'
-            }
-        },
-        {
-            'model': KNNRegressionModel,
-            'kwargs': {
-                'k': 20,
-            }
-        },
-        {
-            'model': KNNRegressionModel,
-            'kwargs': {
-                'k': 20,
-                'weights': 'distance'
-            }
-        },
-        {
-            'model': KNNRegressionModel,
-            'kwargs': {
-                'k': 30,
-            }
-        },
-        {
-            'model': KNNRegressionModel,
-            'kwargs': {
-                'k': 30,
-                'weights': 'distance'
-            }
-        },
-        {
-            'model': DecisionTreeRegressionModel,
-            'kwargs': {
-                'maxDepth': 5,
-                'minSamplesSplit': 10
-            }
-        },
-        {
-            'model': DecisionTreeRegressionModel,
-            'kwargs': {
-                'maxDepth': 5,
-                'minSamplesSplit': 20
-            }
-        }
-    ]
+    knn_meta = MMM.createMeta(model=KNNRegressionModel, kwargs={
+        'k': [1, 5, 10, 20, 30, 40, 50],
+        'weights': ['distance', None]
+    })
     
-    dt_meta = [
-        {
-            'model': DecisionTreeRegressionModel,
-            'kwargs': {}
-        }
-    ]
+    dt_meta = MMM.createMeta(model=DecisionTreeRegressionModel, kwargs={
+        'maxDepth': [10, 20, 30, 40, 50],
+        'minSamplesSplit': [10, 20, 30, 40, 50],
+    })
     
     ca_meta = [
         {
@@ -188,75 +138,39 @@ if __name__ == "__main__":
         }
     ]
     
-    nn_meta = [
-        {
-            'model': NNModel,
-            'kwargs': {
-                'network_meta': [
-                    {
-                        'neurons': 2 # input layer / input dimension
-                    },
-                    {
-                        'neurons': 30,
-                        'activation': nn.ReLU,
-                        'type': nn.Linear
-                    },
-                    {
-                        'neurons': 50,
-                        'activation': nn.ReLU,
-                        'type': nn.Linear
-                    },
-                    {
-                        'neurons': 50,
-                        'activation': nn.ReLU,
-                        'type': nn.Linear
-                    },
-                    {
-                        'neurons': 1,
-                        'activation': None,
-                        'type': nn.Linear
-                    },
-                ]
-            }
+    nn_meta = [{
+        'model': NNModel,
+        'kwargs': {
+            'n_epochs': 10,
+            'learning_rate': 0.01,
+            'network_meta': [
+                {'neurons': 2},
+                {'neurons': 30, 'activation': nn.ReLU, 'type': nn.Linear},
+                {'neurons': 50, 'activation': nn.ReLU, 'type': nn.Linear},
+                {'neurons': 50, 'activation': nn.ReLU, 'type': nn.Linear},
+                {'neurons': 1, 'activation': None, 'type': nn.Linear},
+            ]
         }
-    ]
+    }]
     
-    hcr_meta = [
-        {
-            'model': HeirachicalRegressionModel,
-            'kwargs': {
-                'clusters': 100
-            }
-        }
-    ]
+    hcr_meta = MMM.createMeta(model=HierarchicalRegressionModel, kwargs={
+        'clusters': [10, 20, 30],
+        'model_type': ['regression', 'average']
+    })
     
-    kmr_meta = [
-        {
-            'model': KMeansRegressionModel,
-            'kwargs': {
-                'n_clusters': 5_000,
-                'type': 'regression'
-            }
-        },
-        {
-            'model': KMeansRegressionModel,
-            'kwargs': {
-                'n_clusters': 5_000,
-                'type': 'average'
-            }
-        }
-    ]
+    kmr_meta = MMM.createMeta(model=KMeansRegressionModel, kwargs={
+        'clusters': [10, 20, 30],
+        'model_type': ['regression', 'average']
+    })
     
-    combi_meta = modelMetas + dt_meta #+ ca_meta
     wells_merged = pd.read_csv(f'{DATA_FOLDER}/{WELLS_MERGED}.csv')
 
-    
     # Potentially add this to a method that handles it internally sklearn.model_selection import train_test_split
     wells_merged_clean = wells_merged[['lat', 'lon', 'tvd','country']].copy()
     wells_merged_clean = wells_merged_clean[wells_merged_clean['tvd'] > 0].dropna(subset=['lat', 'lon', 'tvd'])
     del wells_merged
     
-    sample_size = 800_000
+    sample_size = 100_000
     # sample_size = len(wells_merged_clean) - 1 
     train_pcnt = 0.9
     
@@ -268,7 +182,7 @@ if __name__ == "__main__":
     mtf = ModelTestFramework()
     
     mtf.testModels(
-        modelMetas=hcr_meta,
+        modelMetas= nn_meta,
         x_train=train_df[['lat', 'lon',]],
         y_train=train_df['tvd'],
         x_test=test_df[['lat', 'lon', ]],

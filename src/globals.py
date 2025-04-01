@@ -4,6 +4,8 @@
 DATA_FOLDER = './data'
 CLEAN_FOLDER = './data/clean'
 ASSETS_FOLDER = './assets'
+RESULTS_FOLDER = './results'
+RESULTS_METRICS_FOLDER = './results/metrics'
 
 # --- FILE NAMING ---
 CLEAN_SUFFIX = '_clean'

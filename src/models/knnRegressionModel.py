@@ -18,11 +18,16 @@ class KNNRegressionModel(Model):
         k (int): Number of nearest neighbours to find before running the regression
         weights (str or function): Defauly is 'uniform', can be 'distance' to be inversly related to distance, can even be a single parameter function eg lambda x : x**" 
     """
-    def __init__(self, k : int, weights : str = 'uniform'):
+    def __init__(self, k: int, weights: str = None):
         super().__init__()
         self.k = k
+        # Allows None to be passed in as a Kwarg
+        if weights is None:
+            self.weights = 'uniform'
+        else:
+            self.weights = weights
+        self.model = KNeighborsRegressor(n_neighbors=self.k, weights=self.weights)
         
-        self.model = KNeighborsRegressor(n_neighbors=self.k, weights=weights)
         
     def train(self, x_train : pd.DataFrame, y_train : pd.DataFrame):
         self.model.fit(X=x_train, y=y_train)
@@ -48,9 +53,6 @@ if __name__ == "__main__":
     K = [n for n in range(10)]
     error_per_k = []
     sd_per_k = []
-
-    # Create a KNN model
-    # accuracy = knn.score(test_knn_df[['lat', 'lon']], test_knn_df['tvd'])
 
     # Setup the plot
     plt.figure(figsize=(10, 6))
