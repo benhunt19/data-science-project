@@ -13,6 +13,7 @@ from src.globals import DATA_FOLDER, WELLS_MERGED_US_CANADA, WELLS_MERGED
 import warnings
 
 from src.models.modelClassBase import Model
+from src.utils import WorldMap
 
 warnings.simplefilter("ignore", UserWarning)
 
@@ -28,6 +29,8 @@ class DecisionTreeRegressionModel(Model):
     """
     def __init__(self, maxDepth: int = 3, minSamplesSplit: int = 5, criterion : str ='absolute_error'):
         super().__init__()
+        
+        self.maxDepth = maxDepth
 
         # Define model to be DecisionTreeRegressor from sklearn
         self.model = DecisionTreeRegressor(max_depth=maxDepth, min_samples_split=minSamplesSplit, criterion=criterion)
@@ -67,6 +70,7 @@ class DecisionTreeRegressionModel(Model):
         
         plt.show()
 
+
     def plotSplits(self, lat_lim=None, long_lim=None):
         # Create a grid of points covering the map
         lon_grid = np.linspace(-180, 180, 1000)
@@ -79,31 +83,35 @@ class DecisionTreeRegressionModel(Model):
         # Get predictions for all points
         predictions = self.model.predict(grid_points)
         
-        # Plot the decision boundaries and training data heatmap
-        plt.figure(figsize=(15, 10))
+        # Create figure and axis BEFORE plotting
+        fig, ax = plt.subplots(figsize=(15, 10))  # Creates `fig` and `ax` correctly
         
         # Plot decision boundaries first (background)
-        plt.scatter(xx.ravel(), yy.ravel(), c=predictions, cmap='viridis', alpha=0.5)
+        sc = ax.scatter(xx.ravel(), yy.ravel(), c=predictions, cmap='viridis', alpha=0.5)
         
-        # sns.heatmap(predictions, cmap='viridis', cbar_kws={'label': 'Predicted Depth'})
+        # Overlay world map
+        wm = WorldMap.worldMapPlot()
+        wm.plot(ax=ax, linewidth=1, color='black')  # Ensure `plot` method uses `ax`
+
+        # Add colorbar to figure
+        cbar = fig.colorbar(sc, ax=ax, label='Predicted TVD')  
         
+        # Labels and title
+        ax.set_xlabel('Longitude')
+        ax.set_ylabel('Latitude')
+        ax.set_title(f'Average Depth Prediction for Each Split in North America (Tree Depth = {self.maxDepth})')
+        ax.grid(True)
         
-        # Add colorbars
-        plt.colorbar(label='Predicted TVD')  # For the decision boundaries
-        
-        plt.xlabel('Longitude')
-        plt.ylabel('Latitude')
-        plt.title('Average Depth Prediction for Each Split in North America (Tree Depth = 10)')
-        plt.grid(True)
-        
+        # Apply limits if specified
         if lat_lim is not None:
-            plt.ylim(lat_lim)
+            ax.set_ylim(lat_lim)
             
         if long_lim is not None:
-            plt.xlim(long_lim)
+            ax.set_xlim(long_lim)
         
         plt.show()
-        
+
+    
     @staticmethod
     def __model_name__():
         return 'DecisionTreeRegressionModel'
@@ -117,7 +125,7 @@ if __name__ == '__main__':
     wells_merged_clean = wells_merged_clean[wells_merged_clean['tvd'] > 0].dropna(subset=['lat', 'lon', 'tvd'])
     del wells_merged
     
-    sample_size = 100_000
+    sample_size = 10_000
     train_pcnt = 0.8
     
     df = wells_merged_clean.sample(sample_size, random_state=42).reset_index(drop=True)
@@ -126,7 +134,7 @@ if __name__ == '__main__':
     test_df = df.iloc[int(sample_size*train_pcnt) :, :]
     
     kwargs = {
-        'maxDepth': 2,
+        'maxDepth': 20,
         'minSamplesSplit': 10,
     }
     
@@ -144,9 +152,10 @@ if __name__ == '__main__':
     
     plot_kwargs = {
         'lat_lim': [0, 80],
-        'long_lim': [-130, -70]
+        'long_lim': [-150, -60]
     }
-    # dtr.plotSplits(**plot_kwargs)
+    dtr.plotSplits(**plot_kwargs)
     
-    dtr.plot()
+    # dtr.plot()
+    # dtr.worldMapPlot()
     
