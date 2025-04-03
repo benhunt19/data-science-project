@@ -17,3 +17,4 @@ GTA_CSV = 'GTA Oil_Data_03Jan2018'
 
 # --- DERRIVED FILE NAMES ---
 WELLS_MERGED = 'wells_merged'
+WELLS_MERGED_US_CANADA = 'wells_merged_us_canada'

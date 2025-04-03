@@ -6,8 +6,13 @@ from src.models.hierarchicalRegressionModel import HierarchicalRegressionModel
 from src.models.kMeansRegressionModel import KMeansRegressionModel
 from src.testing.modelMetaMaker import ModelMetaMaker as MMM
 
-from src.globals import DATA_FOLDER, WELLS_MERGED, RESULTS_FOLDER, RESULTS_METRICS_FOLDER
-
+from src.globals import (
+    DATA_FOLDER,
+    WELLS_MERGED,
+    WELLS_MERGED_US_CANADA,
+    RESULTS_FOLDER,
+    RESULTS_METRICS_FOLDER
+)
 import pandas as pd
 import numpy as np
 from pprint import pprint
@@ -159,11 +164,12 @@ if __name__ == "__main__":
     })
     
     kmr_meta = MMM.createMeta(model=KMeansRegressionModel, kwargs={
-        'clusters': [10, 20, 30],
+        'k': [1, 3, 5, 7, 9, 11, 15, 20, 30, 40, 50],
         'model_type': ['regression', 'average']
     })
     
-    wells_merged = pd.read_csv(f'{DATA_FOLDER}/{WELLS_MERGED}.csv')
+    # wells_merged = pd.read_csv(f'{DATA_FOLDER}/{WELLS_MERGED}.csv')
+    wells_merged = pd.read_csv(f'{DATA_FOLDER}/{WELLS_MERGED_US_CANADA}.csv')
 
     # Potentially add this to a method that handles it internally sklearn.model_selection import train_test_split
     wells_merged_clean = wells_merged[['lat', 'lon', 'tvd','country']].copy()
@@ -182,7 +188,7 @@ if __name__ == "__main__":
     mtf = ModelTestFramework()
     
     mtf.testModels(
-        modelMetas= nn_meta,
+        modelMetas= kmr_meta,
         x_train=train_df[['lat', 'lon',]],
         y_train=train_df['tvd'],
         x_test=test_df[['lat', 'lon', ]],
