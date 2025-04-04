@@ -1,5 +1,5 @@
 from sklearn.tree import DecisionTreeRegressor
-from sklearn.linear_model import LinearRegression
+# from sklearn.linear_model import LinearRegression
 
 # Use DecisionTreeRegressor for partitioning and LinearRegression in each region
 

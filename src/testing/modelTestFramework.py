@@ -4,6 +4,8 @@ from src.models.decisionTreeRegressionModel import DecisionTreeRegressionModel
 from src.models.countryAverageModel import CountryAverageModel
 from src.models.hierarchicalRegressionModel import HierarchicalRegressionModel
 from src.models.kMeansRegressionModel import KMeansRegressionModel
+from src.models.networkTheoreticRegressionModel import NetworkTheoreticRegressionModel
+
 from src.testing.modelMetaMaker import ModelMetaMaker as MMM
 
 from src.globals import (
@@ -127,7 +129,7 @@ class ModelTestFramework:
 if __name__ == "__main__":
     
     knn_meta = MMM.createMeta(model=KNNRegressionModel, kwargs={
-        'k': [1, 5, 10, 20, 30, 40, 50],
+        'k': [5, 10, 20, 30],
         'weights': ['distance', None]
     })
     
@@ -158,6 +160,7 @@ if __name__ == "__main__":
         }
     }]
     
+    # This is busted
     hcr_meta = MMM.createMeta(model=HierarchicalRegressionModel, kwargs={
         'clusters': [10, 20, 30],
         'model_type': ['regression', 'average']
@@ -168,6 +171,10 @@ if __name__ == "__main__":
         'model_type': ['regression', 'average']
     })
     
+    ntr_meta = MMM.createMeta(model=NetworkTheoreticRegressionModel, kwargs={
+        'k_neighbors': [3, 5, 10]
+    })
+    
     # wells_merged = pd.read_csv(f'{DATA_FOLDER}/{WELLS_MERGED}.csv')
     wells_merged = pd.read_csv(f'{DATA_FOLDER}/{WELLS_MERGED_US_CANADA}.csv')
 
@@ -176,7 +183,7 @@ if __name__ == "__main__":
     wells_merged_clean = wells_merged_clean[wells_merged_clean['tvd'] > 0].dropna(subset=['lat', 'lon', 'tvd'])
     del wells_merged
     
-    sample_size = 100_000
+    sample_size = 10_000
     # sample_size = len(wells_merged_clean) - 1 
     train_pcnt = 0.9
     
@@ -188,7 +195,7 @@ if __name__ == "__main__":
     mtf = ModelTestFramework()
     
     mtf.testModels(
-        modelMetas= kmr_meta,
+        modelMetas= ntr_meta + knn_meta,
         x_train=train_df[['lat', 'lon',]],
         y_train=train_df['tvd'],
         x_test=test_df[['lat', 'lon', ]],
@@ -196,3 +203,5 @@ if __name__ == "__main__":
     )
     
     mtf.evaluateResults()
+    # mtf.results.to_csv(f'{RESULTS_FOLDER}/results.csv', index=False)
+    mtf.evaluationMetrics.to_csv(f'{RESULTS_METRICS_FOLDER}/evaluationMetrics.csv', index=False)
