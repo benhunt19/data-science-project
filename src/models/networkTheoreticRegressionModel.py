@@ -4,12 +4,10 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import networkx as nx
 from pprint import pprint
-from sklearn.linear_model import Ridge
 from sklearn.neighbors import NearestNeighbors
 from src.models.modelClassBase import Model
 import warnings
-from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.linear_model import LinearRegression
+import plotly.graph_objects as go
 
 
 from src.utils import WorldMap
@@ -23,23 +21,20 @@ class NetworkTheoreticRegressionModel(Model):
         A regression model using network theory. Constructs a similarity graph based on the input features
         (latitude, longitude) and performs regression with Laplacian regularization.
     Parameters:
-        gamma (float): Parameter for the RBF kernel to compute similarity.
         alpha (float): Regularization strength for the Ridge regression.
         k_neighbors (int): Number of neighbors to connect in the graph.
     """
-    def __init__(self, gamma: float = 1.0, alpha: float = 1.0, k_neighbors: int = 5):
+    def __init__(self, gamma: float = 1.0, alpha: float = 1.0, k_neighbors: int = 5, alpha_tvd: float = 0.0005, k_predict_override: int = None):
         super().__init__()
-        self.gamma = gamma                          # RBF kernel parameter
-        self.alpha = alpha                          # Regularization for Ridge regression
-        self.k_neighbors = k_neighbors              # Number of neighbors for the graph
-        self.model = None                           # Base regression model
-        self.graph = None                           # To store the similarity graph
-        self.laplacian = None                       # Graph Laplacian for regularization
-        self.distances = None                       # Distances to nearest neighbors
-        self.indices = None                         # Indices of nearest neighbors
-        self.degree_centrality_vals = None          # Degree centrality values
-        self.tvd_centrality_vals = None             # TVD centrality values
-
+        self.k_neighbors = k_neighbors                  # Number of neighbors for the graph
+        self.graph = None                               # To store the similarity graph
+        self.distances = None                           # Distances to nearest neighbors
+        self.indices = None                             # Indices of nearest neighbors
+        self.degree_centrality_vals = None              # Degree centrality values
+        self.tvd_centrality_vals = None                 # TVD centrality values
+        self.alpha_tvd = alpha_tvd                      # TVD centrality parameter
+        self.k_predict_override = k_predict_override    # Number of neighbors for the prediction
+        
     def _build_graph(self, x_train: pd.DataFrame, y_train: pd.DataFrame, hbors: int = 2) -> None:
         """
         Build a similarity graph using the input features.
@@ -78,7 +73,7 @@ class NetworkTheoreticRegressionModel(Model):
         self.degree_centrality_vals = nx.degree_centrality(self.graph)
         return self.degree_centrality_vals
     
-    def tvdCentrality(self):
+    def tvdCentrality(self,):
         """
         Description:
             Calculate the centrality of the graph. We will use a custom function to calculate the centrality of the graph.
@@ -92,8 +87,9 @@ class NetworkTheoreticRegressionModel(Model):
         # The centrality is the inverse of the mean absolute 
         # difference between the TVD of a well and its neighbors
         for i in range(len(self.x_train)):
-            abs_diff = abs(self.y_train.iloc[self.indices[i]] - self.y_train.iloc[i])
-            tvd_centrality_vals.append(1 / np.mean(abs_diff[1:]))
+            abs_diff_from_mean = abs(self.y_train.iloc[self.indices[i]].mean() - self.y_train.iloc[i]) # the absolute difference between the mean of the neighbors and the well itself
+            tvd_centrality_vals.append( np.exp( -1*abs_diff_from_mean /  (self.y_train.iloc[self.indices[i]].var() * self.alpha_tvd ) ) )
+            # tvd_centrality_vals.append( np.exp( -1 * abs_diff_from_mean/ 10 ) )
                 
         self.tvd_centrality_vals = tvd_centrality_vals
         
@@ -111,7 +107,7 @@ class NetworkTheoreticRegressionModel(Model):
         self._build_graph(self.x_train, self.y_train)
         self.tvdCentrality()
 
-    def test(self, x_test: pd.DataFrame, y_test: pd.DataFrame, k_override: int = None) -> None:
+    def test(self, x_test: pd.DataFrame, y_test: pd.DataFrame) -> None:
         """
         Predict TVD values for the test set using weighted k-nearest neighbors based on TVD centrality.
         
@@ -120,7 +116,7 @@ class NetworkTheoreticRegressionModel(Model):
             y_test: True TVD values for test set
             k_override: Optional override for number of neighbors to use
         """
-        test_k_neighbors = k_override if k_override is not None else self.k_neighbors
+        test_k_neighbors = self.k_predict_override if self.k_predict_override is not None else self.k_neighbors
         
         # Extract coordinates once
         test_coords = x_test[['lon', 'lat']].values
@@ -135,14 +131,17 @@ class NetworkTheoreticRegressionModel(Model):
         neighbor_tvd = self.y_train.iloc[indices.ravel()].values.reshape(-1, test_k_neighbors)
         neighbor_centralities = np.take(self.tvd_centrality_vals, indices)
         
-        # Calculate weighted predictions
-        weighted_tvd = neighbor_tvd * neighbor_centralities
-        y_pred = np.sum(weighted_tvd, axis=1) / np.sum(neighbor_centralities, axis=1)
+        # Calculate weighted predictions with both centrality and distance weighting
+        # Convert distances to weights (inverse of distance)
+        distance_weights = 1.0 / (distances + 1e-10)  # Adding small epsilon to avoid division by zero
         
-        # Store predictions and calculate metrics
-        # self.y_pred = y_pred
-        # self.mse = mean_squared_error(y_test, y_pred)
-        # self.r2 = r2_score(y_test, y_pred)
+        # Combine centrality weights with distance weights
+        combined_weights = neighbor_centralities * distance_weights
+        
+        # Apply combined weights to neighbor TVD values
+        weighted_tvd = neighbor_tvd * combined_weights
+        y_pred = np.sum(weighted_tvd, axis=1) / np.sum(combined_weights, axis=1)
+        
         
         return y_pred
 
@@ -262,7 +261,7 @@ class NetworkTheoreticRegressionModel(Model):
             self.tvdCentrality()
         
         # Scale centrality values for better visualization
-        scale_factor = 10_000
+        scale_factor = 200
         node_sizes = [centrality * scale_factor for centrality in self.tvd_centrality_vals]
         
         # Extract coordinates for plotting
@@ -274,7 +273,6 @@ class NetworkTheoreticRegressionModel(Model):
         # Plot world map first (as background)
         wm = WorldMap.worldMapPlot()
         wm.plot(ax=ax, linewidth=1, color='black')
-        sns.set_style('darkgrid')
         # Plot edges from the graph
         for edge in self.graph.edges():
             node1_pos = node_positions[edge[0]]
@@ -306,13 +304,130 @@ class NetworkTheoreticRegressionModel(Model):
         ax.set_title(f'Well Locations with TVD Centrality Visualization (k={self.k_neighbors}, sample size={len(self.x_train)})')
         ax.set_xlabel('Longitude')
         ax.set_ylabel('Latitude')
+        
+        # Apply seaborn styling more forcefully
+        sns.set_style('darkgrid')
+        sns.despine(fig=fig, left=True, bottom=True)
+        
+        # Add grid with seaborn styling
         ax.grid(True, linestyle='--', alpha=0.7)
         
+        # Further enhance with seaborn color palette
+        plt.rcParams.update(sns.plotting_context("notebook"))
+        sns.set_palette("viridis")
+        
         # Adjust layout and display
+        # change to be kwarg
         plt.tight_layout()
-        plt.xlim(-155, -50)
-        plt.ylim(25, 75)
+        plt.xlim(-130, -55)
+        plt.ylim(25, 65)
         plt.show()
+    
+    def plotTvdCentrality3D(self):
+        """
+        Create an interactive 3D visualization of the TVD centrality using Plotly.
+        This allows for rotating, zooming, and hovering over wells to see details.
+        """
+        # Get node positions (longitude and latitude)
+        node_positions = {node: (self.graph.nodes[node]['lon'], self.graph.nodes[node]['lat']) 
+                         for node in self.graph.nodes()}
+        
+        # Get centrality values if not already calculated
+        if self.tvd_centrality_vals is None:
+            self.tvdCentrality()
+        
+        # Scale centrality values for better visualization
+        scale_factor = 500
+        node_sizes = [centrality * scale_factor for centrality in self.tvd_centrality_vals]
+        
+        # Extract coordinates for plotting
+        x_coords = [pos[0] for pos in node_positions.values()]
+        y_coords = [pos[1] for pos in node_positions.values()]
+        
+        # Create a DataFrame for easier plotting with Plotly
+        df = pd.DataFrame({
+            'lon': x_coords,
+            'lat': y_coords,
+            'tvd': self.y_train.values,
+            'centrality': self.tvd_centrality_vals,
+            'size': node_sizes
+        })
+        
+        # Create the 3D scatter plot
+        fig = go.Figure()
+        
+        # Add the wells as 3D scatter points
+        fig.add_trace(go.Scatter3d(
+            x=df['lon'],
+            y=df['lat'],
+            z=df['tvd'],
+            mode='markers',
+            marker=dict(
+                size=df['size'] / 20,  # Scale down for 3D visualization
+                color=df['centrality'],
+                colorscale='Viridis',
+                opacity=0.8,
+                line=dict(width=1, color='black')
+            ),
+            text=[f"Centrality: {c:.2f}" for c in df['centrality']],
+            hoverinfo='text+x+y+z'
+        ))
+        
+        # Add edges as lines
+        for edge in self.graph.edges():
+            node1_pos = node_positions[edge[0]]
+            node2_pos = node_positions[edge[1]]
+            
+            fig.add_trace(go.Scatter3d(
+                x=[node1_pos[0], node2_pos[0]],
+                y=[node1_pos[1], node2_pos[1]],
+                z=[self.y_train.iloc[edge[0]], self.y_train.iloc[edge[1]]],
+                mode='lines',
+                line=dict(color='rgba(0,0,0,0.2)', width=1),
+                hoverinfo='none'
+            ))
+        
+        # Update layout
+        fig.update_layout(
+            title=f'3D TVD Centrality Visualization (k={self.k_neighbors}, sample size={len(self.x_train)})',
+            scene=dict(
+                xaxis_title='Longitude',
+                yaxis_title='Latitude',
+                zaxis_title='TVD Centrality',
+                xaxis=dict(range=[-130, -55]),
+                yaxis=dict(range=[25, 65]),
+                zaxis=dict(title='TVD Centrality Score')
+            ),
+            width=1000,
+            height=800,
+            showlegend=False,
+            margin=dict(l=0, r=0, b=0, t=30)
+        )
+        
+        # Add a colorbar
+        fig.update_layout(
+            coloraxis=dict(
+                colorbar=dict(
+                    title=dict(text=f'TVD Centrality Score (x{scale_factor})', side='right'),
+                    len=0.75
+                )
+            )
+        )
+        
+        # Flip the z-axis to have values going down from zero
+        fig.update_layout(
+            scene=dict(
+                zaxis=dict(
+                    autorange="reversed",  # This flips the z-axis
+                    title='Total Vertical Depthh'
+                )
+            )
+        )        
+        
+        # Show the plot
+        fig.show()
+        
+        return fig
     
     @staticmethod
     def __model_name__():
@@ -328,7 +443,7 @@ if __name__ == '__main__':
     wells_merged_clean = wells_merged_clean[wells_merged_clean['tvd'] > 0].dropna(subset=['lat', 'lon', 'tvd'])
     del wells_merged
     
-    sample_size = 500
+    sample_size = 1_00
     train_pcnt = 0.8
     
     df = wells_merged_clean.sample(sample_size, random_state=42).reset_index(drop=True)
@@ -337,6 +452,7 @@ if __name__ == '__main__':
     test_df = df.iloc[int(sample_size*train_pcnt) :, :]
     
     kwargs = {
+        
         'k_neighbors': 10
     }
     
@@ -347,10 +463,6 @@ if __name__ == '__main__':
         y_train=train_df['tvd']
     )
     
-    # ntr.tvdCentrality()
-    # ntr.plotTvdCentrality()
-    
-    # ntr.plotNodes()
     
     ntr.test(
         x_test=test_df[['lat', 'lon',]],
@@ -358,4 +470,5 @@ if __name__ == '__main__':
         k_override=10
     )
     
-    ntr.plotTvdCentrality()
+    # ntr.plotTvdCentrality()
+    ntr.plotTvdCentrality3D()

@@ -6,6 +6,8 @@ from src.models.hierarchicalRegressionModel import HierarchicalRegressionModel
 from src.models.kMeansRegressionModel import KMeansRegressionModel
 from src.models.networkTheoreticRegressionModel import NetworkTheoreticRegressionModel
 
+import json as JSON
+
 from src.testing.modelMetaMaker import ModelMetaMaker as MMM
 
 from src.globals import (
@@ -81,11 +83,14 @@ class ModelTestFramework:
             Y_TEST: y_test
         })
         
+        self.meta_store = pd.DataFrame([])
+        
         # Run testModel over all models in the provided meta
         for i, modelMeta in enumerate(modelMetas):
             print("Testing Model:")
             pprint(modelMeta)
-            self.results[modelMeta['model'].__model_name__() + str(i + 1)] = self.testModel(
+            model_name = modelMeta['model'].__model_name__() + str(i + 1)
+            self.results[model_name] = self.testModel(
                 modelMeta=modelMeta,
                 x_train=x_train,
                 y_train=y_train,
@@ -93,8 +98,16 @@ class ModelTestFramework:
                 y_test=y_test,
                 plot=plot
             )
+            # Create a serializable version of the model metadata
+            serializable_meta = {
+                'model_name': model_name,
+                'kwargs': modelMeta['kwargs']
+            }
+            # Convert the serializable metadata to JSON
+            model_meta_str = JSON.dumps(serializable_meta)
+            self.meta_store = pd.concat([self.meta_store, pd.DataFrame([model_meta_str])], ignore_index=True)
+            
         print(self.results)
-        
         return self
     
     def evaluateResults(self) -> None:
@@ -172,7 +185,9 @@ if __name__ == "__main__":
     })
     
     ntr_meta = MMM.createMeta(model=NetworkTheoreticRegressionModel, kwargs={
-        'k_neighbors': [3, 5, 10]
+        'k_neighbors': [15, 20, 25],
+        'k_predict_override': [5, 10],
+        'alpha_tvd': [0.01, 0.02]
     })
     
     # wells_merged = pd.read_csv(f'{DATA_FOLDER}/{WELLS_MERGED}.csv')
@@ -183,9 +198,8 @@ if __name__ == "__main__":
     wells_merged_clean = wells_merged_clean[wells_merged_clean['tvd'] > 0].dropna(subset=['lat', 'lon', 'tvd'])
     del wells_merged
     
-    sample_size = 10_000
-    # sample_size = len(wells_merged_clean) - 1 
-    train_pcnt = 0.9
+    sample_size = 40_000
+    train_pcnt = 0.8
     
     df = wells_merged_clean.sample(sample_size, random_state=42).reset_index(drop=True)
     
@@ -195,7 +209,7 @@ if __name__ == "__main__":
     mtf = ModelTestFramework()
     
     mtf.testModels(
-        modelMetas= ntr_meta + knn_meta,
+        modelMetas=  dt_meta,
         x_train=train_df[['lat', 'lon',]],
         y_train=train_df['tvd'],
         x_test=test_df[['lat', 'lon', ]],
@@ -205,3 +219,4 @@ if __name__ == "__main__":
     mtf.evaluateResults()
     # mtf.results.to_csv(f'{RESULTS_FOLDER}/results.csv', index=False)
     mtf.evaluationMetrics.to_csv(f'{RESULTS_METRICS_FOLDER}/evaluationMetrics.csv', index=False)
+    mtf.meta_store.to_csv(f'{RESULTS_METRICS_FOLDER}/metaStore.csv', index=False)
