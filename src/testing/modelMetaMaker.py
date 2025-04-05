@@ -11,7 +11,34 @@ class ModelMetaMaker:
     def createMeta(model: Model, kwargs: dict[list]) -> list[dict]:
         """
         Description:
-            This creates arrays of model metadata, this is multi dimensional so the output can be LARGE
+            This creates arrays of model metadata, this is multi dimensional so the output can be LARGE.
+        Exaple usage:
+            kwargs = {
+                'clusters': range(50, 100, 5),
+                'clusters2': range(50, 100, 5),
+                'model_type': 'regression'
+            }
+            modelMetas = ModelMetaMaker.createMeta(model=KMeansRegressionModel, kwargs=kwargs)
+            this will return 5 x 5 = 25 model metas with the following kwargs:
+            {
+                'clusters': 50,
+                'clusters2': 50,
+                'model_type': 'regression'
+            },
+            {
+                'clusters': 50,
+                'clusters2': 55,
+                'model_type': 'regression'
+            },
+            ...
+            {
+                'clusters': 95,
+                'clusters2': 95,
+                'model_type': 'regression'
+            },
+            
+            etc.
+            
         """
         
         base = {
