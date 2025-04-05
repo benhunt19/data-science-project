@@ -14,11 +14,8 @@ sample_size = 25_000
 train_pcnt = 0.80
 resample_count = 10
 
-k = [2, 3, 4, 5, 10, 15, 20, 25, 30, 35, 40]
-knn_meta = MMM.createMeta(model=KNNRegressionModel, kwargs={
-    'k': k,
-    'weights': ['distance']
-})
+k = [2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 35, 40]
+weights = ['distance', 'uniform']
 
 mtf = ModelTestFramework()
 
@@ -28,8 +25,8 @@ mtf.multiModelParameterValidation(
     resampleCount=resample_count,
     sampleSize=sample_size,
     trainPcnt=train_pcnt,
-    metric='MSE',
+    metric='MAE',
     plot=True,
     primaryParam={'k': k},
-    secondaryParam={'weights': ['distance', 'uniform']}
+    secondaryParam={'weights': weights}
 )

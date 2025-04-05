@@ -88,8 +88,7 @@ class NetworkTheoreticRegressionModel(Model):
         # difference between the TVD of a well and its neighbors
         for i in range(len(self.x_train)):
             abs_diff_from_mean = abs(self.y_train.iloc[self.indices[i]].mean() - self.y_train.iloc[i]) # the absolute difference between the mean of the neighbors and the well itself
-            tvd_centrality_vals.append( np.exp( -1*abs_diff_from_mean /  (self.y_train.iloc[self.indices[i]].var() * self.alpha_tvd ) ) )
-            # tvd_centrality_vals.append( np.exp( -1 * abs_diff_from_mean/ 10 ) )
+            tvd_centrality_vals.append( np.exp( -1*abs_diff_from_mean /  (self.y_train.iloc[self.indices[i]].var() * self.alpha_tvd + 10e-8) ) )
                 
         self.tvd_centrality_vals = tvd_centrality_vals
         
@@ -452,7 +451,7 @@ if __name__ == '__main__':
     test_df = df.iloc[int(sample_size*train_pcnt) :, :]
     
     kwargs = {
-        
+        'alpha_tvd': 0.0005,
         'k_neighbors': 10
     }
     

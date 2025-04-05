@@ -12,10 +12,10 @@ wells_merged_clean = wells_merged_clean[wells_merged_clean['tvd'] > 0].dropna(su
 
 sample_size = 25_000
 train_pcnt = 0.80
-resample_count = 10
+resample_count = 5
 
-max_depth = [5, 6, 7, 8, 9, 10]
-min_samples_split = [2, 3, 4, 5, 10, 15, 20]
+max_depth = [5, 6, 7, 8, 9, 10, 12, 15, 20 , 30]
+min_samples_split = [5,  10, 15]
 
 dtr_meta = MMM.createMeta(model=DecisionTreeRegressionModel, kwargs={
     'max_depth': max_depth,
@@ -30,7 +30,7 @@ mtf.multiModelParameterValidation(
     resampleCount=resample_count,
     sampleSize=sample_size,
     trainPcnt=train_pcnt,
-    metric='MSE',
+    metric='MAE',
     plot=True,
     primaryParam={'maxDepth': max_depth},
     secondaryParam={'minSamplesSplit': min_samples_split}

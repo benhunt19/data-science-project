@@ -12,7 +12,7 @@ wells_merged_clean = wells_merged_clean[wells_merged_clean['tvd'] > 0].dropna(su
 sample_size = 40_000
 train_pcnt = 0.8
 
-k = [2, 3, 5, 7, 9, 11, 15, 20, 30, 40, 50, 75, 100]
+k = [2, 3, 5, 7, 9, 11, 15, 20, 30, 40, 50, 75, 100, 200]
 model_type = ['regression', 'average']
 resample_count = 10
 
@@ -24,7 +24,7 @@ mtf.multiModelParameterValidation(
     resampleCount=resample_count,
     sampleSize=sample_size,
     trainPcnt=train_pcnt,
-    metric='MSE',
+    metric='MAE',
     plot=True,
     primaryParam={'k': k},
     secondaryParam={'model_type': model_type}

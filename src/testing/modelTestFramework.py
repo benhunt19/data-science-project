@@ -369,25 +369,25 @@ if __name__ == "__main__":
 
     mtf = ModelTestFramework()
     
-    # mtf.testModels(
-    #     modelMetas=  ntr_meta,
-    #     x_train=train_df[['lat', 'lon',]],
-    #     y_train=train_df['tvd'],
-    #     x_test=test_df[['lat', 'lon', ]],
-    #     y_test=test_df['tvd']
-    # )
+    mtf.testModels(
+        modelMetas=  ntr_meta,
+        x_train=train_df[['lat', 'lon',]],
+        y_train=train_df['tvd'],
+        x_test=test_df[['lat', 'lon', ]],
+        y_test=test_df['tvd']
+    )
     
-    # mtf.evaluateResults()
+    mtf.evaluateResults()
     
     # mtf.results.to_csv(f'{RESULTS_FOLDER}/results.csv', index=False)
     # mtf.evaluationMetrics.to_csv(f'{RESULTS_METRICS_FOLDER}/evaluationMetrics.csv', index=False)
     # mtf.meta_store.to_csv(f'{RESULTS_METRICS_FOLDER}/metaStore.csv', index=False)
     
-    mtf.modelParameterValidation(
-        modelMetas=knn_meta,
-        data=wells_merged_clean,
-        sampleSize=40_000,
-        trainPcnt=0.8,
-        resampleCount=10,
-        metric='MSE'
-    )
+    # mtf.modelParameterValidation(
+    #     modelMetas=knn_meta,
+    #     data=wells_merged_clean,
+    #     sampleSize=40_000,
+    #     trainPcnt=0.8,
+    #     resampleCount=10,
+    #     metric='MSE'
+    # )
