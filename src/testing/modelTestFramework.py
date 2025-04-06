@@ -6,19 +6,21 @@ from src.models.hierarchicalRegressionModel import HierarchicalRegressionModel
 from src.models.kMeansRegressionModel import KMeansRegressionModel
 from src.models.networkTheoreticRegressionModel import NetworkTheoreticRegressionModel
 from src.models.modelClassBase import Model
-import json as JSON
 
 from src.testing.modelMetaMaker import ModelMetaMaker as MMM
 
 import matplotlib.pyplot as plt
 import seaborn as sns
+import json as JSON
+import time
 
 from src.globals import (
     DATA_FOLDER,
     WELLS_MERGED,
     WELLS_MERGED_US_CANADA,
     RESULTS_FOLDER,
-    RESULTS_METRICS_FOLDER
+    RESULTS_METRICS_FOLDER,
+    TEST_RESULTS_FOLDER
 )
 import pandas as pd
 import numpy as np
@@ -219,8 +221,6 @@ class ModelTestFramework:
         for results in allResults:
             print(results)
         
-        
-        
         if plot:
             
             paramsName = list(primaryParam.keys())[0]
@@ -290,15 +290,53 @@ class ModelTestFramework:
         
         self.evaluationMetrics = pd.DataFrame()
         
-        for column in self.results.columns[1:]:
+        for i, column in enumerate(self.results.columns[1:]):
             metricDict = {}
             for metric_name, metric_func in self.metrics().items():
                 metricDict[metric_name] = metric_func(self.results[Y_TEST], self.results[column])
             
+            metricDict['model_meta'] = self.meta_store.iloc[i, 0]
+            
             self.evaluationMetrics[column] = pd.Series(metricDict)
         
-        print(self.evaluationMetrics)
+        print(self.evaluationMetrics.iloc[:-1])
         return self
+    
+    def timeModels(self, modelMetas : list[dict], x_train: pd.DataFrame, y_train: pd.DataFrame, x_test : pd.DataFrame, y_test : pd.DataFrame) -> None:
+        """
+        Description:
+            Time the models
+        Parameters:
+            modelMetas (list[dict]): The model metadata
+        """
+        
+        # Initiate the actual test data in the results dataframe
+        self.results = pd.DataFrame({
+            Y_TEST: y_test
+        })
+        
+        
+        
+        for i, modelMeta in enumerate(modelMetas):
+            print("Testing Model:")
+            pprint(modelMeta)
+            model_name = modelMeta['model'].__model_name__() + str(i + 1)
+            self.results[model_name] = self.testModel(
+                modelMeta=modelMeta,
+                x_train=x_train,
+                y_train=y_train,
+                x_test=x_test,
+                y_test=y_test,
+                plot=False
+            )
+    
+    def saveMetrics(self, filename : str) -> None:
+        """
+        Description:
+            Save the results to a csv file
+        """
+        self.evaluationMetrics.to_csv(f'{TEST_RESULTS_FOLDER}/{filename}.csv', index=True)
+        
 
 if __name__ == "__main__":
     

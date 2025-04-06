@@ -15,7 +15,7 @@ train_pcnt = 0.80
 resample_count = 10
 
 alpha_tvd = [0.01, 0.05, 0.1]
-k_neighbors = [5, 6, 7, 8, 9, 10, 12, 15, 20]
+k_neighbors = [5, 6, 7, 8, 9, 10, 12, 15, 20, 30, 50]
 
 mtf = ModelTestFramework()
 

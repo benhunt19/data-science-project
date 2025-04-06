@@ -12,7 +12,7 @@ wells_merged_clean = wells_merged_clean[wells_merged_clean['tvd'] > 0].dropna(su
 
 sample_size = 25_000
 train_pcnt = 0.80
-resample_count = 5
+resample_count = 10
 
 max_depth = [5, 6, 7, 8, 9, 10, 12, 15, 20 , 30]
 min_samples_split = [5,  10, 15]

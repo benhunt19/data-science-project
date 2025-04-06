@@ -110,7 +110,6 @@ class DecisionTreeRegressionModel(Model):
             ax.set_xlim(long_lim)
         
         plt.show()
-
     
     @staticmethod
     def __model_name__():
@@ -134,7 +133,7 @@ if __name__ == '__main__':
     test_df = df.iloc[int(sample_size*train_pcnt) :, :]
     
     kwargs = {
-        'maxDepth': 20,
+        'maxDepth': 10,
         'minSamplesSplit': 10,
     }
     
@@ -154,8 +153,3 @@ if __name__ == '__main__':
         'lat_lim': [0, 80],
         'long_lim': [-150, -60]
     }
-    dtr.plotSplits(**plot_kwargs)
-    
-    # dtr.plot()
-    # dtr.worldMapPlot()
-    
