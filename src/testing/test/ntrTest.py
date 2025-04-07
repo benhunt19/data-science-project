@@ -10,8 +10,6 @@ wells_merged = pd.read_csv(f'{DATA_FOLDER}/{WELLS_MERGED}.csv')
 wells_merged_clean = wells_merged[['lat', 'lon', 'tvd','country']].copy()
 wells_merged_clean = wells_merged_clean[wells_merged_clean['tvd'] > 0].dropna(subset=['lat', 'lon', 'tvd'])
 
-print(wells_merged_clean.shape)
-
 sample_size = len(wells_merged_clean)
 train_pcnt = 0.80
 
@@ -22,24 +20,24 @@ train_df = wells_merged_clean_sample.iloc[:int(sample_size*train_pcnt), :]
 test_df = wells_merged_clean_sample.iloc[int(sample_size*train_pcnt) :, :]
 
 
-# ntr_meta = MMM.createMeta(
-#     model=NetworkTheoreticRegressionModel,
-#     kwargs={
-#         'k_neighbors': 10,
-#         'alpha_tvd': 0.01
-#     }
-# )
+ntr_meta = MMM.createMeta(
+    model=NetworkTheoreticRegressionModel,
+    kwargs={
+        'k_neighbors': 10,
+        'alpha_tvd': 0.01
+    }
+)
 
-# mtf = ModelTestFramework()
+mtf = ModelTestFramework()
 
-# mtf.testModels(
-#     modelMetas=ntr_meta,
-#     x_train=train_df[['lat', 'lon']],
-#     y_train=train_df['tvd'],
-#     x_test=test_df[['lat', 'lon']],
-#     y_test=test_df['tvd']
-# )
+mtf.testModels(
+    modelMetas=ntr_meta,
+    x_train=train_df[['lat', 'lon']],
+    y_train=train_df['tvd'],
+    x_test=test_df[['lat', 'lon']],
+    y_test=test_df['tvd']
+)
 
-# mtf.evaluateResults()
+mtf.evaluateResults()
 
-# mtf.saveMetrics(filename=f'ntr_metrics_{datetime.now().strftime("%Y%m%d_%H%M%S")}')
+mtf.saveMetrics(filename=f'ntr_metrics_{datetime.now().strftime("%Y%m%d_%H%M%S")}')

@@ -302,7 +302,7 @@ class ModelTestFramework:
         print(self.evaluationMetrics.iloc[:-1])
         return self
     
-    def timeModels(self, modelMetas : list[dict], x_train: pd.DataFrame, y_train: pd.DataFrame, x_test : pd.DataFrame, y_test : pd.DataFrame) -> None:
+    def timeModels(self, modelMetas : list[dict], data : pd.DataFrame, sampleSizes : list[int], resampleCount : int = 5, xCols : list[str] = ['lat', 'lon'], yCol : str = 'tvd') -> None:
         """
         Description:
             Time the models
@@ -310,25 +310,42 @@ class ModelTestFramework:
             modelMetas (list[dict]): The model metadata
         """
         
-        # Initiate the actual test data in the results dataframe
-        self.results = pd.DataFrame({
-            Y_TEST: y_test
-        })
+        sampleSizes = [500, 1_000, 2_000, 5_000, 10_000, 20_000, 50_000]
         
+        allAverages = pd.DataFrame()
+
+        for modelMeta in modelMetas:
+            
+            modelAverages = []
+            
+            m = modelMeta['model'](**modelMeta['kwargs'])
+            
+            print(m.__model_name__())
+            
+            for sampleSize in sampleSizes:
+                tmpTotalTime = 0
+                
+                for i in range(resampleCount):
+                    
+                    dataSample = data.sample(sampleSize)
+                    
+                    # Change these to be parameters if this gets expanded
+                    x_train = dataSample[xCols]
+                    y_train = dataSample[yCol]
+                    
+                    # Time the model to train on the training data
+                    startTime = time.time()
+                    m.train(x_train=x_train, y_train=y_train)
+                    endTime = time.time()
+                    m = modelMeta['model'](**modelMeta['kwargs'])
+                    timeTaken = endTime - startTime
+                    tmpTotalTime += timeTaken
+                
+                modelAverages.append(tmpTotalTime / resampleCount)
+                
+            allAverages[ m.__model_name__()] = pd.Series(modelAverages, index=sampleSizes)
         
-        
-        for i, modelMeta in enumerate(modelMetas):
-            print("Testing Model:")
-            pprint(modelMeta)
-            model_name = modelMeta['model'].__model_name__() + str(i + 1)
-            self.results[model_name] = self.testModel(
-                modelMeta=modelMeta,
-                x_train=x_train,
-                y_train=y_train,
-                x_test=x_test,
-                y_test=y_test,
-                plot=False
-            )
+        print(allAverages)
     
     def saveMetrics(self, filename : str) -> None:
         """

@@ -40,3 +40,5 @@ mtf.testModels(
 mtf.evaluateResults()
 
 mtf.saveMetrics(filename=f'knnr_metrics_{datetime.now().strftime("%Y%m%d_%H%M%S")}')
+
+mtf.saveResults(filename=f'knnr_results_{datetime.now().strftime("%Y%m%d_%H%M%S")}')
