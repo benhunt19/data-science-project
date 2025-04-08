@@ -2,7 +2,9 @@
 
 ## `Global Oil Wells: A Machine Learning and Network Theoretic Analysis of Geolocation and Oil Well Characteristics`.
 
-<img src="assets/3d_k_means_earth.png" alt="3d K-Means Clustering of global oil wells" style="width:50%;"/>
+<p align="center">
+    <img src="assets/3d_k_means_earth.png" alt="3d K-Means Clustering of global oil wells" style="width:50%;"/>
+</p>
 
 This project is a comprehensive exploration of regression models applied to well depth prediction using geospatial data. The models are designed to predict True Vertical Depth (TVD) based on latitude and longitude features. The project includes data preprocessing, model training, testing, and validation, as well as performance evaluation and visualization.
 
